@@ -36,6 +36,7 @@ int main()
   bool exit = false;
 
   int frameCount = 0;
+  bool spawn = true;
   double angle = 0;
   double speed = 1;
 
@@ -45,6 +46,7 @@ int main()
     deltaTime = (double)(now - last) / (double)SDL_GetPerformanceFrequency();
     last = now;
     cout << 1 / deltaTime << " " << SDL_GetPerformanceFrequency() << endl;
+    // cout << frameCount << endl;
 
     int m_X;
     int m_Y;
@@ -66,12 +68,15 @@ int main()
         if (ev.key.keysym.sym == SDLK_DOWN) {
           speed -= 0.1;
         }
+        if (ev.key.keysym.sym == SDLK_SPACE) {
+          spawn = !spawn;
+        }
       } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
         system.AddParticle(Vec2(m_X, 800 - m_Y));
       }
     }
 
-    if (frameCount >= 10) {
+    if (frameCount >= 0 && spawn) {
       Vec2 dir(m_X - 400, 400 - m_Y);
 
       frameCount = 0;

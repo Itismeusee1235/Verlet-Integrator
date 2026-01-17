@@ -27,6 +27,16 @@ struct Particle {
       SDL_RenderDrawLine(renderer, x + j, y + end, x + j, y - end);
     }
   }
+  void Draw(SDL_Renderer* renderer, int screenX, int screenY, SDL_Color color = WHITE)
+  {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    int x = screenX;
+    int y = screenY;
+    for (int j = -particleSize; j <= particleSize; j++) {
+      double end = sqrt(particleSize * particleSize - j * j);
+      SDL_RenderDrawLine(renderer, x + j, y + end, x + j, y - end);
+    }
+  }
 };
 
 class QuadNode {
@@ -38,7 +48,7 @@ class QuadNode {
   bool InsertParticle(Particle* particle);
   void InsertParticles(std::deque<Particle>& particles);
   void Draw(SDL_Renderer* renderer, int MAX_X, int MAX_Y, bool drawP);
-  bool Query(Particle& particle, std::vector<Particle*>& out);
+  void Query(Particle& particle, std::vector<Particle*>& out, double overlapRadius);
   void Empty();
 
   int getObjectCount()
@@ -68,7 +78,7 @@ class QuadNode {
   std::vector<Particle*> boundaryParticles;
 
   bool particleFullyInNode(Particle& particle);
-  bool particleIntersectsNode(Particle& particle);
+  bool particleOverlapsNode(Particle& particle, double radius);
   bool insertIntoChildren(Particle* particle);
   void Split();
 };

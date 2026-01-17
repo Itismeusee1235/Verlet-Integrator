@@ -2,18 +2,21 @@
 #define PARTICLESYSTEM_HPP
 
 #include "Vector.hpp"
+#include "QuadTree.hpp"
 #include <SDL2/SDL.h>
+#include <deque>
 
 const int SUB_STEPS = 8;
 const int SOLVER_STEPS = 4;
 
 class ParticleSystem {
 
-  int NUM_PARTICLES;
+  std::deque<Particle> particles;
+  int particleId = 0;
+  std::vector<Particle*> neighbors;
 
-  Vec2* particle;
-  Vec2* old_particle;
-  Vec2* particle_a;
+  QuadNode tree;
+
   Vec2 gravity;
   float timeStep;
   double damping = 0.998;

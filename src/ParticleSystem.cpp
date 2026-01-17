@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 #include <cmath>
 #include <random>
+#include <algorithm>
 #include <iostream>
 
 std::random_device rd;
@@ -10,6 +11,7 @@ std::mt19937 gen;
 std::uniform_real_distribution<float> Pos(0, 10000);
 
 ParticleSystem::ParticleSystem(double w, double h)
+    : tree(Vec2(w / 2, h / 2), Vec2(w, h), Vec2(20, 20))
 {
 
   MAX_X = w;
@@ -22,55 +24,38 @@ ParticleSystem::ParticleSystem(double w, double h)
 
   gravity = Vec2(0, -500);
   timeStep = 0.016;
-
-  particle = (Vec2*)malloc(0);
-  old_particle = (Vec2*)malloc(0);
-  particle_a = (Vec2*)malloc(0);
 }
 
 void ParticleSystem::AddParticle(Vec2 pos, Vec2 vel)
 {
-  Vec2* temp;
-  int make_size = (NUM_PARTICLES + 1) * sizeof(Vec2);
-  int cpy_size = (NUM_PARTICLES) * sizeof(Vec2);
-
-  temp = (Vec2*)malloc(make_size);
-  memcpy(temp, particle, cpy_size);
-  free(particle);
-  particle = temp;
-
-  temp = (Vec2*)malloc(make_size);
-  memcpy(temp, old_particle, cpy_size);
-  free(old_particle);
-  old_particle = temp;
-
-  temp = (Vec2*)malloc(make_size);
-  memcpy(temp, particle_a, cpy_size);
-  free(particle_a);
-  particle_a = temp;
-
-  particle[NUM_PARTICLES] = pos;
-  old_particle[NUM_PARTICLES] = pos - vel;
-  particle_a[NUM_PARTICLES] = ZeroVec;
-  NUM_PARTICLES++;
+  Particle newParticle;
+  newParticle.pos = pos;
+  newParticle.oldPos = pos - vel;
+  newParticle.acc = ZeroVec;
+  newParticle.id = particleId;
+  newParticle.particleSize = particleRadius;
+  particles.push_back(newParticle);
+  particleId++;
 }
 
 void ParticleSystem::Verlet(double time)
 {
-  for (int i = 0; i < NUM_PARTICLES; i++) {
-    Vec2& x = particle[i];
-    Vec2 temp = x;
-    Vec2& oldx = old_particle[i];
-    Vec2& a = particle_a[i];
-    x += (x - oldx) * damping + a * time * time;
-    oldx = temp;
+
+  for (int i = 0; i < particles.size(); i++) {
+    Vec2& pos = particles[i].pos;
+    Vec2 temp = pos;
+    Vec2& oldPos = particles[i].oldPos;
+    Vec2& acc = particles[i].acc;
+
+    pos += (pos - oldPos) * damping + acc * time * time;
+    oldPos = temp;
   }
 }
 
 void ParticleSystem::AccumulateForces()
 {
-  for (int i = 0; i < NUM_PARTICLES; i++) {
-    particle_a[i] = gravity;
+  for (int i = 0; i < particles.size(); i++) {
+    particles[i].acc = gravity;
 
     // for (int j = 0; j < NUM_PARTICLES; j++) {
     //   if (i == j) {
@@ -88,7 +73,7 @@ void ParticleSystem::AccumulateForces()
 
 void ParticleSystem::ApplyConstraints()
 {
-  for (int i = 0; i < NUM_PARTICLES; i++) {
+  for (int i = 0; i < particles.size(); i++) {
     BoundaryConstraint(i);
     CollisionConstraint(i);
     // BorderConstraint(i);
@@ -97,66 +82,75 @@ void ParticleSystem::ApplyConstraints()
 
 void ParticleSystem::BoundaryConstraint(int i)
 {
-  Vec2 diff = boundaryCentre - particle[i];
+  Vec2 pos = particles[i].pos;
+  Vec2 diff = boundaryCentre - pos;
   if (diff.norm() + particleRadius > boundaryRadius) {
-    Vec2 dir = (particle[i] - boundaryCentre).unit();
-    float penetration = (particle[i] - boundaryCentre).norm() + particleRadius - boundaryRadius;
-    particle[i] -= dir * penetration;
+    Vec2 dir = (pos - boundaryCentre).unit();
+    float penetration = (pos - boundaryCentre).norm() + particleRadius - boundaryRadius;
+    particles[i].pos -= dir * penetration;
   }
 }
 
 void ParticleSystem::BorderConstraint(int i)
 {
   double overlap, vel;
-  if (particle[i].y - particleRadius < 0) {
-    overlap = 0 - particle[i].y;
-    vel = particle[i].y - old_particle[i].y;
+  Vec2 pos = particles[i].pos;
+  Vec2 old_pos = particles[i].oldPos;
 
-    particle[i].y = 0 + overlap;
-    old_particle[i].y = particle[i].y + vel;
+  if (pos.y - particleRadius < 0) {
+    overlap = 0 - pos.y;
+    vel = pos.y - old_pos.y;
 
-  } else if (particle[i].y - particleRadius > MAX_Y) {
+    pos.y = 0 + overlap;
+    old_pos.y = pos.y + vel;
 
-    overlap = MAX_Y - particle[i].y;
-    vel = particle[i].y - old_particle[i].y;
+  } else if (pos.y - particleRadius > MAX_Y) {
 
-    particle[i].y = MAX_Y + overlap;
-    old_particle[i].y = particle[i].y + vel;
+    overlap = MAX_Y - pos.y;
+    vel = pos.y - old_pos.y;
+
+    pos.y = MAX_Y + overlap;
+    old_pos.y = pos.y + vel;
   }
 
-  if (particle[i].x - particleRadius < 0) {
+  if (pos.x - particleRadius < 0) {
 
-    overlap = 0 - particle[i].x;
-    vel = particle[i].x - old_particle[i].x;
+    overlap = 0 - pos.x;
+    vel = pos.x - old_pos.x;
 
-    particle[i].x = 0 + overlap;
-    old_particle[i].x = particle[i].x + vel;
+    pos.x = 0 + overlap;
+    old_pos.x = pos.x + vel;
 
-  } else if (particle[i].x - particleRadius > MAX_X) {
-    overlap = MAX_X - particle[i].x;
-    vel = particle[i].x - old_particle[i].x;
+  } else if (pos.x - particleRadius > MAX_X) {
+    overlap = MAX_X - pos.x;
+    vel = pos.x - old_pos.x;
 
-    particle[i].x = MAX_X + overlap;
-    old_particle[i].x = particle[i].x + vel;
+    pos.x = MAX_X + overlap;
+    old_pos.x = pos.x + vel;
   }
 }
 
-void ParticleSystem::CollisionConstraint(int j)
+void ParticleSystem::CollisionConstraint(int i)
 {
   double penetration, mag, r_sum;
-  for (int i = j + 1; i < NUM_PARTICLES; i++) {
+  neighbors.clear();
+  tree.Query(particles[i], neighbors, 2 * particleRadius + 1);
+  for (int j = 0; j < neighbors.size(); j++) {
 
-    Vec2 dir = particle[i] - particle[j];
+    if (particles[i].id >= neighbors[j]->id) {
+      continue;
+    }
+    Vec2 dir = particles[i].pos - neighbors[j]->pos;
     mag = dir.norm();
     r_sum = 2 * particleRadius;
 
     if (mag < r_sum && mag > 1e-6) {
       penetration = r_sum - mag;
       Vec2 shift = dir.unit() * penetration / 2;
-      particle[i] += shift;
-      // old_particle[i] += shift;
-      particle[j] -= shift;
-      // old_particle[j] -= shift;
+      particles[i].pos += shift;
+      // particles[i].oldPos += shift;
+      neighbors[j]->pos -= shift;
+      // neighbors[j]->oldPos -= shift;
     }
   }
 }
@@ -164,11 +158,13 @@ void ParticleSystem::CollisionConstraint(int j)
 void ParticleSystem::TimeStep()
 {
   // particle[0].print();
-
+  std::cout << " << " << particles.size() << std::endl;
   double time = timeStep / SUB_STEPS;
   for (int i = 0; i < SUB_STEPS; i++) {
     AccumulateForces();
     Verlet(time);
+    tree.Empty();
+    tree.InsertParticles(particles);
     for (int j = 0; j < SOLVER_STEPS; j++) {
 
       ApplyConstraints();
@@ -178,13 +174,15 @@ void ParticleSystem::TimeStep()
 
 void ParticleSystem::Draw(SDL_Renderer* renderer)
 {
-  SDL_SetRenderDrawColor(renderer, 155, 155, 155, 150);
+  SDL_SetRenderDrawColor(renderer, 155, 155, 155, 255);
   SDL_DrawCircle(renderer, boundaryCentre.x, boundaryCentre.y, boundaryRadius);
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-  for (int i = 0; i < NUM_PARTICLES; i++) {
-    SDL_DrawCircle(renderer, particle[i].x, MAX_Y - particle[i].y, particleRadius);
+
+  for (int i = 0; i < particles.size(); i++) {
+    particles[i].Draw(renderer, particles[i].pos.x, MAX_Y - particles[i].pos.y);
   }
+  tree.Draw(renderer, MAX_X, MAX_Y, false);
 }
 
 void ParticleSystem::SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r)

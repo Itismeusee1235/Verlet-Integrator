@@ -81,9 +81,6 @@ bool QuadNode::InsertParticle(Particle* particle)
 
   if (children[0] == nullptr) {
     if (particles.size() > MAXOBJECTCOUNT && (quadDim.x / 2 >= minDim.x && quadDim.y / 2 > minDim.y)) {
-      quadDim.print();
-      // minDim.print();
-      // printf("--%d\n", particles.size());
       Split();
 
       for (int i = 0; i < particles.size(); i++) {
@@ -116,26 +113,34 @@ void QuadNode::InsertParticles(std::deque<Particle>& inParticles)
   }
 }
 
-bool QuadNode::Query(Particle& particle, std::vector<Particle*>& out)
+void QuadNode::Query(Particle& particle, std::vector<Particle*>& out, double overlapRadius)
 {
-  if (this->particleIntersectsNode(particle)) {
-    for (int i = 0; i < particles.size(); i++) {
-      out.push_back(particles[i]);
-    }
-    for (int i = 0; i < boundaryParticles.size(); i++) {
-      out.push_back(boundaryParticles[i]);
-    }
-
+  if (this->particleOverlapsNode(particle, overlapRadius)) {
     if (this->children[0] != nullptr) {
-      this->children[0]->Query(particle, out);
-      this->children[1]->Query(particle, out);
-      this->children[2]->Query(particle, out);
-      this->children[3]->Query(particle, out);
+      for (Particle* p : boundaryParticles) {
+        if (p == &particle) {
+          continue;
+        }
+        if ((p->pos - particle.pos).norm2() <= overlapRadius * overlapRadius) {
+          out.push_back(p);
+        }
+      }
+      for (int i = 0; i < 4; i++) {
+        if (this->children[i]->particleOverlapsNode(particle, overlapRadius)) {
+          children[i]->Query(particle, out, overlapRadius);
+        }
+      }
+    } else {
+      for (Particle* p : particles) {
+        if (p == &particle) {
+          continue;
+        }
+        if ((p->pos - particle.pos).norm2() <= overlapRadius * overlapRadius) {
+          out.push_back(p);
+        }
+      }
     }
-  } else {
-    return false;
   }
-  return true;
 }
 
 void QuadNode::Split()
@@ -164,7 +169,7 @@ void QuadNode::Draw(SDL_Renderer* renderer, int MAX_X, int MAX_Y, bool drawP)
     rec.w = quadDim.x;
     rec.h = quadDim.y;
     rec.x = quadPos.x - quadDim.x / 2;
-    rec.y = quadPos.y - quadDim.y / 2;
+    rec.y = MAX_Y - quadPos.y - quadDim.y / 2;
 
     SDL_SetRenderDrawColor(renderer, drawColor.r, drawColor.g, drawColor.b, drawColor.a);
     SDL_RenderDrawRect(renderer, &rec);
@@ -201,14 +206,13 @@ bool QuadNode::particleFullyInNode(Particle& particle)
   return xSatisfied && ySatisfied;
 }
 
-bool QuadNode::particleIntersectsNode(Particle& particle)
+bool QuadNode::particleOverlapsNode(Particle& particle, double overlapRadius)
 {
-  double xMin = quadPos.x - quadDim.x / 2 - particle.particleSize;
-  double xMax = quadPos.x + quadDim.x / 2 + particle.particleSize;
-  double yMin = quadPos.y - quadDim.y / 2 - particle.particleSize;
-  double yMax = quadPos.y + quadDim.y / 2 + particle.particleSize;
+  double closestX = std::min(quadPos.x + quadDim.x / 2, std::max(particle.pos.x, quadPos.x - quadDim.x / 2));
+  double closestY = std::min(quadPos.y + quadDim.y / 2, std::max(particle.pos.y, quadPos.y - quadDim.y / 2));
 
-  if (particle.pos.x >= xMin && particle.pos.x <= xMax && particle.pos.y >= yMin && particle.pos.y <= yMax) {
+  Vec2 dist(particle.pos.x - closestX, particle.pos.y - closestY);
+  if (dist.norm2() <= overlapRadius * overlapRadius) {
     return true;
   }
   return false;
