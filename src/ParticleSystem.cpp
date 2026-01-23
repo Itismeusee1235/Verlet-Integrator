@@ -26,16 +26,43 @@ ParticleSystem::ParticleSystem(double w, double h)
   timeStep = 0.016;
 }
 
-void ParticleSystem::AddParticle(Vec2 pos, Vec2 vel)
+Particle& ParticleSystem::AddParticle(Vec2 pos, Vec2 vel)
 {
-  Particle newParticle;
+  particles.emplace_back();
+  Particle& newParticle = particles.back();
+
   newParticle.pos = pos;
   newParticle.oldPos = pos - vel;
   newParticle.acc = ZeroVec;
   newParticle.id = particleId;
   newParticle.particleSize = particleRadius;
-  particles.push_back(newParticle);
   particleId++;
+
+  return newParticle;
+}
+
+void ParticleSystem::AddRod(int id1, int id2, double length)
+{
+  rods.emplace_back(id1, id2, length);
+}
+
+void ParticleSystem::AddRod(Vec2 pos1, Vec2 pos2, double length, Vec2 vel1, Vec2 vel2)
+{
+  Particle& p1 = this->AddParticle(pos1, vel1);
+  Particle& p2 = this->AddParticle(pos2, vel2);
+
+  rods.emplace_back(p1.id, p2.id, length);
+}
+
+void ParticleSystem::AddTri(Vec2 pos1, Vec2 pos2, Vec2 pos3, double length, Vec2 vel1, Vec2 vel2, Vec2 vel3)
+{
+  Particle& p1 = this->AddParticle(pos1, vel1);
+  Particle& p2 = this->AddParticle(pos2, vel2);
+  Particle& p3 = this->AddParticle(pos3, vel3);
+
+  rods.emplace_back(p1.id, p2.id, length);
+  rods.emplace_back(p3.id, p2.id, length);
+  rods.emplace_back(p1.id, p3.id, length);
 }
 
 void ParticleSystem::Verlet(double time)
@@ -73,6 +100,7 @@ void ParticleSystem::AccumulateForces()
 
 void ParticleSystem::ApplyConstraints()
 {
+  RodConstraint();
   for (int i = 0; i < particles.size(); i++) {
     BoundaryConstraint(i);
     CollisionConstraint(i);
@@ -155,10 +183,29 @@ void ParticleSystem::CollisionConstraint(int i)
   }
 }
 
+void ParticleSystem::RodConstraint()
+{
+
+  for (auto rod : rods) {
+    Particle& p1 = this->particles[rod.p1_index];
+    Particle& p2 = this->particles[rod.p2_index];
+    Vec2 diff = p1.pos - p2.pos;
+    double dist = diff.norm();
+    Vec2 dir = diff / dist;
+
+    if (std::fabs(dist - rod.length) > 1e-6) {
+      double penentration = dist - rod.length;
+      Vec2 shift = dir * (penentration / 2);
+      p1.pos -= shift;
+      p2.pos += shift;
+    }
+  }
+}
+
 void ParticleSystem::TimeStep()
 {
   // particle[0].print();
-  std::cout << " << " << particles.size() << std::endl;
+  // std::cout << " << " << particles.size() << std::endl;
   double time = timeStep / SUB_STEPS;
   for (int i = 0; i < SUB_STEPS; i++) {
     AccumulateForces();
@@ -182,7 +229,27 @@ void ParticleSystem::Draw(SDL_Renderer* renderer)
   for (int i = 0; i < particles.size(); i++) {
     particles[i].Draw(renderer, particles[i].pos.x, MAX_Y - particles[i].pos.y);
   }
+
+  for (auto rod : this->rods) {
+    Vec2 p1_pos = this->particles[rod.p1_index].pos;
+    Vec2 p2_pos = this->particles[rod.p2_index].pos;
+    SDL_RenderDrawLine(renderer, p1_pos.x, MAX_Y - p1_pos.y, p2_pos.x, MAX_Y - p2_pos.y);
+  }
   tree.Draw(renderer, MAX_X, MAX_Y, false);
+}
+
+std::vector<Particle> ParticleSystem::Query(Vec2 pos, double radius)
+{
+  std::vector<Particle> out;
+  std::vector<Particle*> hits;
+
+  Particle dummy;
+  dummy.pos = pos;
+  this->tree.Query(dummy, hits, radius);
+  for (int i = 0; i < hits.size(); i++) {
+    out.push_back(*hits[i]);
+  }
+  return out;
 }
 
 void ParticleSystem::SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r)

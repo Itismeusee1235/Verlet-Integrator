@@ -106,7 +106,7 @@ bool QuadNode::InsertParticle(Particle* particle)
   return true;
 }
 
-void QuadNode::InsertParticles(std::deque<Particle>& inParticles)
+void QuadNode::InsertParticles(std::vector<Particle>& inParticles)
 {
   for (int i = 0; i < inParticles.size(); i++) {
     this->InsertParticle(&inParticles[i]);

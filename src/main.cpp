@@ -1,5 +1,6 @@
 #include "../include/Vector.hpp"
 #include "../include/ParticleSystem.hpp"
+#include <SDL2/SDL_keycode.h>
 #include <iostream>
 
 using namespace std;
@@ -36,17 +37,22 @@ int main()
   bool exit = false;
 
   int frameCount = 0;
-  bool spawn = true;
+  bool spawn = false;
   double angle = 0;
   double speed = 1;
+  bool selectMode = false;
+  vector<int> selectedIds;
+  Vec2 pos1;
+  Vec2 pos2;
 
   while (!exit) {
 
     now = SDL_GetPerformanceCounter();
     deltaTime = (double)(now - last) / (double)SDL_GetPerformanceFrequency();
     last = now;
-    cout << 1 / deltaTime << " " << SDL_GetPerformanceFrequency() << endl;
-    // cout << frameCount << endl;
+    // cout << 1 / deltaTime << " " << SDL_GetPerformanceFrequency() << endl;
+    // cout << addMode << endl;
+    cout << selectMode << " " << selectedIds.size() << endl;
 
     int m_X;
     int m_Y;
@@ -62,25 +68,45 @@ int main()
           exit = true;
           break;
         }
-        if (ev.key.keysym.sym == SDLK_UP) {
-          speed += 0.1;
-        }
-        if (ev.key.keysym.sym == SDLK_DOWN) {
-          speed -= 0.1;
-        }
         if (ev.key.keysym.sym == SDLK_SPACE) {
           spawn = !spawn;
         }
+        if (ev.key.keysym.sym == SDLK_s) {
+          selectMode = !selectMode;
+        }
+        if (ev.key.keysym.sym == SDLK_r) {
+          if (selectedIds.size() >= 2) {
+            int p1 = selectedIds.back();
+            selectedIds.pop_back();
+            int p2 = selectedIds.back();
+            selectedIds.pop_back();
+            system.AddRod(p1, p2, 50);
+          }
+        }
       } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
-        system.AddParticle(Vec2(m_X, 800 - m_Y));
+        if (selectMode) {
+          vector<Particle> hits;
+
+          hits = system.Query(Vec2(m_X, 800 - m_Y), 20);
+          for (auto i : hits) {
+            cout << "hey" << endl;
+            if (find(selectedIds.begin(), selectedIds.end(), i.id) == selectedIds.end()) {
+              selectedIds.push_back(i.id);
+              break;
+            }
+          }
+
+        } else {
+
+          system.AddParticle(Vec2(m_X, 800 - m_Y));
+        }
       }
     }
 
-    if (frameCount >= 0 && spawn) {
+    if (frameCount >= 10 && spawn) {
       Vec2 dir(m_X - 400, 400 - m_Y);
 
       frameCount = 0;
-      // system.AddParticle(Vec2(400, 400), Vec2(3, 0).rotate(angle));
       system.AddParticle(Vec2(400, 400), dir.normalized() * speed);
       angle += 0.05;
     }

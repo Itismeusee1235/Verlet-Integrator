@@ -4,16 +4,17 @@
 #include "Vector.hpp"
 #include "QuadTree.hpp"
 #include <SDL2/SDL.h>
-#include <deque>
+#include <bits/stdc++.h>
 
 const int SUB_STEPS = 8;
 const int SOLVER_STEPS = 4;
 
 class ParticleSystem {
 
-  std::deque<Particle> particles;
+  std::vector<Particle> particles;
   int particleId = 0;
   std::vector<Particle*> neighbors;
+  std::vector<Rod> rods;
 
   QuadNode tree;
 
@@ -33,7 +34,11 @@ class ParticleSystem {
   ParticleSystem(double w, double h);
   void TimeStep();
   void Draw(SDL_Renderer* renderer);
-  void AddParticle(Vec2 pos, Vec2 vel = ZeroVec);
+  Particle& AddParticle(Vec2 pos, Vec2 vel = ZeroVec);
+  void AddRod(int id1, int id2, double length);
+  void AddRod(Vec2 pos1, Vec2 pos2, double lenght, Vec2 vel1 = ZeroVec, Vec2 vel2 = ZeroVec);
+  void AddTri(Vec2 pos1, Vec2 pos2, Vec2 pos3, double lenght, Vec2 vel1 = ZeroVec, Vec2 vel2 = ZeroVec, Vec2 vel3 = ZeroVec);
+  std::vector<Particle> Query(Vec2 pos, double radius);
 
   private:
   void Verlet(double time);
@@ -43,6 +48,7 @@ class ParticleSystem {
   void BorderConstraint(int index);
   void BoundaryConstraint(int index);
   void CollisionConstraint(int index);
+  void RodConstraint();
   void SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r);
 };
 
