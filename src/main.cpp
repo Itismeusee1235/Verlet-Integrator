@@ -45,6 +45,25 @@ int main()
   Vec2 pos1;
   Vec2 pos2;
 
+  Particle p1 = system.AddParticle(Vec2(400, 400));
+  Particle p2 = system.AddParticle(Vec2(450, 350));
+  Particle p3 = system.AddParticle(Vec2(450, 450));
+  Particle p4 = system.AddParticle(Vec2(350, 450));
+  Particle p5 = system.AddParticle(Vec2(350, 350));
+
+  system.AddRod(p1.id, p2.id, 10);
+  system.AddRod(p1.id, p3.id, 10);
+  system.AddRod(p1.id, p4.id, 10);
+  system.AddRod(p1.id, p5.id, 10);
+
+  system.AddRod(p2.id, p3.id, 100);
+  system.AddRod(p2.id, p5.id, 100);
+
+  system.AddRod(p4.id, p5.id, 100);
+  system.AddRod(p4.id, p3.id, 100);
+
+  bool run = false;
+
   while (!exit) {
 
     now = SDL_GetPerformanceCounter();
@@ -68,7 +87,31 @@ int main()
           exit = true;
           break;
         }
+        if (ev.key.keysym.sym == SDLK_c) {
+          system.Empty();
+        }
         if (ev.key.keysym.sym == SDLK_SPACE) {
+          run = !run;
+        }
+        if (ev.key.keysym.sym == SDLK_b) {
+          p1 = system.AddParticle(Vec2(400, 400));
+          p2 = system.AddParticle(Vec2(450, 350));
+          p3 = system.AddParticle(Vec2(450, 450));
+          p4 = system.AddParticle(Vec2(350, 450));
+          p5 = system.AddParticle(Vec2(350, 350));
+
+          system.AddRod(p1.id, p2.id, 10);
+          system.AddRod(p1.id, p3.id, 10);
+          system.AddRod(p1.id, p4.id, 10);
+          system.AddRod(p1.id, p5.id, 10);
+
+          system.AddRod(p2.id, p3.id, 100);
+          system.AddRod(p2.id, p5.id, 100);
+
+          system.AddRod(p4.id, p5.id, 100);
+          system.AddRod(p4.id, p3.id, 100);
+        }
+        if (ev.key.keysym.sym == SDLK_p) {
           spawn = !spawn;
         }
         if (ev.key.keysym.sym == SDLK_s) {
@@ -87,7 +130,7 @@ int main()
         if (selectMode) {
           vector<Particle> hits;
 
-          hits = system.Query(Vec2(m_X, 800 - m_Y), 20);
+          hits = system.Query(Vec2(m_X, 800 - m_Y), 4);
           for (auto i : hits) {
             cout << "hey" << endl;
             if (find(selectedIds.begin(), selectedIds.end(), i.id) == selectedIds.end()) {
@@ -103,23 +146,31 @@ int main()
       }
     }
 
-    if (frameCount >= 10 && spawn) {
-      Vec2 dir(m_X - 400, 400 - m_Y);
-
-      frameCount = 0;
-      system.AddParticle(Vec2(400, 400), dir.normalized() * speed);
-      angle += 0.05;
-    }
-
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderClear(renderer);
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     system.Draw(renderer);
 
+    if (selectMode) {
+
+      SDL_SetRenderDrawColor(renderer, 255, 122, 122, 255);
+      SDL_DrawCircle(renderer, m_X, m_Y, 4);
+    }
+
     SDL_RenderPresent(renderer);
 
-    system.TimeStep();
+    if (run) {
+      if (frameCount >= 10 && spawn) {
+        Vec2 dir(m_X - 400, 400 - m_Y);
+
+        frameCount = 0;
+        system.AddParticle(Vec2(400, 400), dir.normalized() * speed);
+        angle += 0.05;
+      }
+      system.TimeStep();
+    }
+
     frameCount++;
   }
   SDL_Quit();

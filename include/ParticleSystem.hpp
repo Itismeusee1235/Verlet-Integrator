@@ -9,6 +9,8 @@
 const int SUB_STEPS = 8;
 const int SOLVER_STEPS = 4;
 
+void SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r);
+
 class ParticleSystem {
 
   std::vector<Particle> particles;
@@ -39,17 +41,18 @@ class ParticleSystem {
   void AddRod(Vec2 pos1, Vec2 pos2, double lenght, Vec2 vel1 = ZeroVec, Vec2 vel2 = ZeroVec);
   void AddTri(Vec2 pos1, Vec2 pos2, Vec2 pos3, double lenght, Vec2 vel1 = ZeroVec, Vec2 vel2 = ZeroVec, Vec2 vel3 = ZeroVec);
   std::vector<Particle> Query(Vec2 pos, double radius);
+  void Empty();
 
   private:
   void Verlet(double time);
   void AccumulateForces();
   void ApplyConstraints();
+  // void VelocityUpdate();
 
   void BorderConstraint(int index);
   void BoundaryConstraint(int index);
   void CollisionConstraint(int index);
   void RodConstraint();
-  void SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r);
 };
 
 #endif

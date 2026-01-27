@@ -7,9 +7,11 @@ const SDL_Color GREEN { 0, 255, 0, 255 };
 struct Particle {
   Vec2 pos;
   Vec2 oldPos;
+  Vec2 normalAccumulator = ZeroVec;
   Vec2 acc;
   int id;
   double particleSize = 5;
+  bool collided = false;
 
   Particle(Vec2 pos = ZeroVec, Vec2 oldPos = ZeroVec);
 

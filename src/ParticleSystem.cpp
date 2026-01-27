@@ -83,39 +83,74 @@ void ParticleSystem::AccumulateForces()
 {
   for (int i = 0; i < particles.size(); i++) {
     particles[i].acc = gravity;
+  }
 
-    // for (int j = 0; j < NUM_PARTICLES; j++) {
-    //   if (i == j) {
-    //     continue;
-    //   }
-    //
-    //   Vec2 distance = particle[j] - particle[i];
-    //   double mag = distance.norm2();
-    //   if (mag > 0 && mag < 300) {
-    //     particle_a[i] += distance.unit() * (1000 / (mag + 10));
-    //   }
-    // }
+  double springCoeff = 100;
+  double DampingCoeff = 50;
+
+  for (auto rod : rods) {
+    Particle& p1 = particles[rod.p1_index];
+    Particle& p2 = particles[rod.p2_index];
+
+    Vec2 diff = p1.pos - p2.pos;
+    Vec2 v1 = p1.pos - p1.oldPos;
+    Vec2 v2 = p2.pos - p2.oldPos;
+    Vec2 relVel = v1 - v2;
+
+    double dist = diff.norm();
+    if (std::fabs(dist - rod.length) > 1e-6) {
+      Vec2 dir = diff / dist;
+
+      double springForce = (dist - rod.length) * springCoeff;
+      double springDamp = (relVel * dir) * DampingCoeff;
+
+      p1.acc -= dir * (springForce + springDamp);
+      p2.acc += dir * (springForce + springDamp);
+    }
   }
 }
 
 void ParticleSystem::ApplyConstraints()
 {
-  RodConstraint();
+  // RodConstraint();
   for (int i = 0; i < particles.size(); i++) {
+    Particle& P = particles[i];
+
     BoundaryConstraint(i);
     CollisionConstraint(i);
-    // BorderConstraint(i);
+
+    for (auto rod : this->rods) { // Check if particle is intersecting line
+      if (i == rod.p1_index || i == rod.p2_index) {
+        continue;
+      }
+      Particle& v1 = this->particles[rod.p1_index];
+      Particle& v2 = this->particles[rod.p2_index];
+      Vec2 AB = v1.pos - v2.pos;
+      Vec2 AP = particles[i].pos - v2.pos;
+      double projection = (AP * AB) / (AB * AB);
+      projection = fmax(0, fmin(projection, 1));
+      Vec2 C = v2.pos + projection * AB;
+      Vec2 diff = P.pos - C;
+      if ((diff).norm2() <= P.particleSize * P.particleSize) {
+        double dist = diff.norm();
+        Vec2 dir = diff / dist;
+        P.pos += dir * dist / 2;
+        P.oldPos += dir * dist / 2;
+        // v1.pos -= dir * dist / 2;
+        // v2.pos -= dir * dist / 2;
+      }
+    }
   }
 }
 
 void ParticleSystem::BoundaryConstraint(int i)
 {
-  Vec2 pos = particles[i].pos;
+  Vec2& pos = particles[i].pos;
   Vec2 diff = boundaryCentre - pos;
   if (diff.norm() + particleRadius > boundaryRadius) {
     Vec2 dir = (pos - boundaryCentre).unit();
     float penetration = (pos - boundaryCentre).norm() + particleRadius - boundaryRadius;
-    particles[i].pos -= dir * penetration;
+    pos -= dir * penetration;
   }
 }
 
@@ -230,10 +265,13 @@ void ParticleSystem::Draw(SDL_Renderer* renderer)
     particles[i].Draw(renderer, particles[i].pos.x, MAX_Y - particles[i].pos.y);
   }
 
+  SDL_SetRenderDrawColor(renderer, 155, 255, 155, 255);
   for (auto rod : this->rods) {
     Vec2 p1_pos = this->particles[rod.p1_index].pos;
     Vec2 p2_pos = this->particles[rod.p2_index].pos;
     SDL_RenderDrawLine(renderer, p1_pos.x, MAX_Y - p1_pos.y, p2_pos.x, MAX_Y - p2_pos.y);
+    this->particles[rod.p1_index].Draw(renderer, p1_pos.x, MAX_Y - p1_pos.y, SDL_Color { 155, 255, 155, 255 });
+    this->particles[rod.p2_index].Draw(renderer, p2_pos.x, MAX_Y - p2_pos.y, SDL_Color { 155, 255, 155, 255 });
   }
   tree.Draw(renderer, MAX_X, MAX_Y, false);
 }
@@ -252,10 +290,18 @@ std::vector<Particle> ParticleSystem::Query(Vec2 pos, double radius)
   return out;
 }
 
-void ParticleSystem::SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r)
+void SDL_DrawCircle(SDL_Renderer* renderer, int x, int y, int r)
 {
   for (int i = -r; i <= r; i++) {
     double end = sqrt(r * r - i * i);
     SDL_RenderDrawLine(renderer, x + i, y + end, x + i, y - end);
   }
+}
+
+void ParticleSystem::Empty()
+{
+  this->particleId = 0;
+  this->particles.clear();
+  this->rods.clear();
+  this->neighbors.clear();
 }
